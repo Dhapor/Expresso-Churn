@@ -108,7 +108,7 @@ st.markdown("<h6>Expresso, a well-known telecommunications provider in Africa un
 st.sidebar.image('pngwing.com (8).png')
 
 dx = data[['REGULARITY', 'DATA_VOLUME','REVENUE',  'ORANGE', 'ON_NET', 'MONTANT','FREQUENCE']]
-st.write(data.head())
+st.write(dx.head())
 
 input_type = st.sidebar.radio("Select Your Prefered Input Style", ["Slider", "Number Input"])
 if input_type == 'Slider':
@@ -133,7 +133,14 @@ else:
 st.header('Input Values')
 
 # Bring all the inputs into a dataframe
-input_variable = pd.DataFrame([{'REGULARITY':REGULARITY, 'DATA_VOLUME': DATA_VOLUME, 'REVENUE': REVENUE, 'ORANGE':ORANGE, 'ON_NET':ON_NET, 'MONTANT': MONTANT, 'FREQUENCE':FREQUENCE}])
+input_variable = pd.DataFrame([{
+    'REGULARITY':REGULARITY, 
+    'DATA_VOLUME': DATA_VOLUME, 
+    'REVENUE': REVENUE, 
+    'ORANGE':ORANGE, 
+    'ON_NET':ON_NET, 
+    'MONTANT': MONTANT, 
+    'FREQUENCE':FREQUENCE}])
 
 st.write(input_variable)
 
