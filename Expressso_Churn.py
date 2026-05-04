@@ -1,167 +1,373 @@
 import pandas as pd
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 import warnings
-warnings.filterwarnings('ignore')
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from sklearn.ensemble import RandomForestRegressor
+import os
 import pickle
 
-data = pd.read_csv('Expresso_churn_dataset.csv')
-print(data.head())
-
-df = data.copy()
-# df.drop('user_id', axis = 1, inplace = True)
-# for i in df:
-#     if df[i].isnull().sum() / len(df) * 100 > 50:
-#         df.drop(i, axis = 1, inplace = True)
-# df.isnull().sum()
-
-# sampling0 = df[df.CHURN == 0]
-# sampling0 = sampling0.dropna()
-# sampling0.reset_index(drop = True, inplace = True)
-# sampling0.shape
-
-# sampling1 = df[df.CHURN == 1]
-# sampling1.drop(['REGION', 'TOP_PACK', 'FREQ_TOP_PACK'], axis = 1, inplace = True)
-# sampling1.dropna(inplace = True)
-# sampling1.reset_index(drop = True, inplace =True)
-# sampling1.shape
-
-# sampling0 = sampling0.sample(35000)
-# cols = sampling1.columns
-# df = pd.concat([sampling1, sampling0[cols]], axis = 0)
-# df.isnull().sum()
-
-# df = df.copy()
-# df.dropna()
-
-categoricals = df.select_dtypes(include = ['object', 'category'])
-numericals = df.select_dtypes(include = 'number')
-
-def outlierRemoval(dataframe):
-    for i in dataframe.columns:
-        if dataframe[i].dtypes != 'O': # --------------------------------------- If the data type is not an object type
-            Q1 = dataframe[i].describe()[4] # ---------------------------------- Identify lower Quartile
-            Q3 = dataframe[i].describe()[6] # ---------------------------------- Identify the upper quartile
-            IQR = Q3 - Q1 # ---------------------------------------------------- Get Inter Quartile Range
-            minThreshold = Q1 - 1.5 * IQR # ------------------------------------ Get Minimum Threshold
-            maxThreshold = Q3 + 1.5 * IQR # ------------------------------------ Get Maximum Threshold
-
-            dataframe = dataframe.loc[(dataframe[i] >= minThreshold) & (dataframe[i] <= maxThreshold)]
-    return dataframe
-
-
-df = outlierRemoval(df)
+warnings.filterwarnings('ignore')
 
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-scaler = StandardScaler()
-encoder = LabelEncoder()
-
-for i in numericals.columns: # ................................................. Select all numerical columns
-    if i in df.drop('CHURN', axis = 1).columns: # ...................................................... If the selected column is found in the general dataframe
-        df[i] = scaler.fit_transform(df[[i]]) # ................................ Scale it
-
-for i in categoricals.columns: # ............................................... Select all categorical columns
-    if i in df.drop('CHURN', axis = 1).columns: # ...................................................... If the selected columns are found in the general dataframe
-        df[i] = encoder.fit_transform(df[i])# .................................. encode it
-
-df.head()
-
-sel_cols = ['REGULARITY', 'DATA_VOLUME','REVENUE',  'ORANGE', 'ON_NET', 'MONTANT','FREQUENCE']
-x = df[sel_cols]
-
-x = x
-y = df.CHURN
-from sklearn.model_selection import train_test_split
-xtrain, xtest, ytrain, ytest = train_test_split(x, y, test_size = 0.20, random_state = 75, stratify = y)
-
-
-# # -----------------------MODELLING--------------------------
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix
-model = RandomForestClassifier() 
-model.fit(xtrain, ytrain) 
-cross_validation = model.predict(xtrain)
-pred = model.predict(xtest)
+from sklearn.model_selection import train_test_split
 
-# save model
-model = pickle.dump(model, open('Expresso_churn.pkl', 'wb'))
+# ── Page config ────────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Expresso Churn Predictor",
+    page_icon="📡",
+    layout="wide",
+)
 
-print(f'\nModel is Saved\n')
+# ── Styles ─────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+  html, body, [class*="css"] { font-family: 'Montserrat', sans-serif; }
 
-#-------Streamlit development------
-model = pickle.load(open('Expresso_churn.pkl', "rb"))
-
-st.markdown("<h1 style = 'color: #860A35; text-align: center; font-family:  montserrat'>EXPRESSO CHURN</h1>", unsafe_allow_html=True)
-st.markdown("<h6 style = 'margin: -15px; color: #860A35; text-align: center; font-family:montserrat'>Churn Prediction for Expresso Clients</p></h6>", unsafe_allow_html=True)
-st.markdown('<br1>', unsafe_allow_html= True)
-st.image('bg.jpeg',width = 400) #---- to give it image
-st.markdown("<h5 style='color: #ffffff; background-color: #860A35; text-align: center; padding: 5px; font-family: Arial, sans-serif;'>BACKGROUND OF STUDY</h5>", unsafe_allow_html=True)
-
-st.markdown('<br1>', unsafe_allow_html= True)
-
-st.markdown("<h6>Expresso, a well-known telecommunications provider in Africa under the Sudatel Group, connects various nations with vital services like internet and mobile phone service. As one of the major telecom companies in Africa, Expresso is essential to improving connectivity, fostering social interaction, and advancing economic development. This work aims to forecast the likelihood of churn among Expresso customers by utilizing a dataset comprising over 2.5 million users and over 15 behavior elements. To effectively plan customer retention campaigns, handle obstacles, and capitalize on innovation opportunities in this fast-paced sector, telecommunications companies must comprehend and anticipate customer attrition.</h6>", unsafe_allow_html=True)
-
-st.sidebar.image('pngwing.com (8).png')
-
-dx = data[['REGULARITY', 'DATA_VOLUME','REVENUE',  'ORANGE', 'ON_NET', 'MONTANT','FREQUENCE']]
-st.write(dx.head())
-
-input_type = st.sidebar.radio("Select Your Prefered Input Style", ["Slider", "Number Input"])
-if input_type == 'Slider':
-    st.sidebar.header('Input Your Information')
-    REGULARITY = st.sidebar.slider("REGULARITY", data['REGULARITY'].min(), data['REGULARITY'].max())
-    DATA_VOLUME = st.sidebar.slider("DATA_VOLUME", data['DATA_VOLUME'].min(), data['DATA_VOLUME'].max())
-    REVENUE = st.sidebar.slider("REVENUE", data['REVENUE'].min(), data['REVENUE'].max())
-    ORANGE = st.sidebar.slider("ORANGE", data['ORANGE'].min(), data['ORANGE'].max())
-    ON_NET = st.sidebar.slider("ON_NET", data['ON_NET'].min(), data['ON_NET'].max())
-    MONTANT = st.sidebar.slider("MONTANT", data['MONTANT'].min(), data['MONTANT'].max())
-    FREQUENCE = st.sidebar.slider("FREQUENCE", data['FREQUENCE'].min(), data['FREQUENCE'].max())
-else:
-    st.sidebar.header('Input Your Information')
-    REGULARITY = st.sidebar.number_input("REGULARITY", data['REGULARITY'].min(), data['REGULARITY'].max())
-    DATA_VOLUME = st.sidebar.number_input("DATA_VOLUME", data['DATA_VOLUME'].min(), data['DATA_VOLUME'].max())
-    REVENUE = st.sidebar.number_input("REVENUE", data['REVENUE'].min(), data['REVENUE'].max())
-    ORANGE = st.sidebar.slider("ORANGE", data['ORANGE'].min(), data['ORANGE'].max())
-    ON_NET = st.sidebar.slider("ON_NET", data['ON_NET'].min(), data['ON_NET'].max())
-    MONTANT = st.sidebar.slider("MONTANT", data['MONTANT'].min(), data['MONTANT'].max())
-    FREQUENCE = st.sidebar.slider("FREQUENCE", data['FREQUENCE'].min(), data['FREQUENCE'].max())
-
-st.header('Input Values')
-
-# Bring all the inputs into a dataframe
-input_variable = pd.DataFrame([{
-    'REGULARITY':REGULARITY, 
-    'DATA_VOLUME': DATA_VOLUME, 
-    'REVENUE': REVENUE, 
-    'ORANGE':ORANGE, 
-    'ON_NET':ON_NET, 
-    'MONTANT': MONTANT, 
-    'FREQUENCE':FREQUENCE}])
-
-st.write(input_variable)
-
-# Standard Scale the Input Variable.
-for i in input_variable.columns:
-    input_variable[i] = StandardScaler().fit_transform(input_variable[[i]])
-
-st.markdown('<hr>', unsafe_allow_html=True)
-st.markdown("<h4 style = 'color: #860A35; text-align: left; font-family: montserrat '>Model Report</h4>", unsafe_allow_html = True)
+  .hero-title { font-size: 2.8rem; font-weight: 700; color: #860A35; text-align: center; margin-bottom: 0; }
+  .hero-sub   { font-size: 1.05rem; color: #888; text-align: center; margin-top: 4px; }
+  .section-header {
+    font-size: 1.4rem; font-weight: 600; color: #860A35;
+    border-bottom: 2px solid #860A35; padding-bottom: 6px; margin-top: 1.8rem;
+  }
+  .feature-card {
+    background: #fff8f9; border-left: 4px solid #860A35;
+    border-radius: 6px; padding: 14px 18px; margin-bottom: 10px;
+  }
+  .feature-card h4 { color: #860A35; margin: 0 0 4px 0; font-size: 1rem; }
+  .feature-card p  { color: #555; margin: 0; font-size: 0.9rem; }
+  .stat-card {
+    background: #860A35; color: white; border-radius: 10px;
+    padding: 18px; text-align: center;
+  }
+  .stat-card .value { font-size: 1.8rem; font-weight: 700; }
+  .stat-card .label { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+  .result-churn {
+    background: linear-gradient(135deg, #860A35, #5c0724);
+    color: white; border-radius: 12px; padding: 28px; text-align: center; margin-top: 1.5rem;
+  }
+  .result-safe {
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    color: white; border-radius: 12px; padding: 28px; text-align: center; margin-top: 1.5rem;
+  }
+  .result-verdict { font-size: 2.2rem; font-weight: 700; }
+  .result-label   { font-size: 0.95rem; opacity: 0.85; }
+  hr.divider { border: none; border-top: 1px solid #e0e0e0; margin: 1.5rem 0; }
+</style>
+""", unsafe_allow_html=True)
 
 
-
-if st.button('Press To Predict'):
-    predicted = model.predict(input_variable)
-    st.toast('CHURNERS Predicted')
-    st.image('check icon.png', width = 200)
-    st.success(f'predicted CHURN with provided information is {predicted}')
-
-st.markdown('<br><br>', unsafe_allow_html= True)
+# ── Data + model ───────────────────────────────────────────────────────────────
+@st.cache_data
+def load_data():
+    return pd.read_csv('Expresso_churn_dataset.csv')
 
 
-st.markdown("<h8 style = 'color: #860A35; text-align: left; font-family:montserrat'>Expresso Churn built by Datapsalm</h8>",unsafe_allow_html=True)
+@st.cache_resource
+def load_model():
+    model_path = 'Expresso_churn.pkl'
+    if os.path.exists(model_path):
+        return pickle.load(open(model_path, 'rb'))
+
+    data = load_data()
+    df = data.copy()
+
+    categoricals = df.select_dtypes(include=['object', 'category'])
+    numericals   = df.select_dtypes(include='number')
+
+    def remove_outliers(df):
+        for col in df.columns:
+            if df[col].dtype != 'O':
+                Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                df = df[(df[col] >= Q1 - 1.5 * IQR) & (df[col] <= Q3 + 1.5 * IQR)]
+        return df
+
+    df = remove_outliers(df)
+
+    scaler  = StandardScaler()
+    encoder = LabelEncoder()
+
+    for col in numericals.columns:
+        if col in df.drop('CHURN', axis=1).columns:
+            df[col] = scaler.fit_transform(df[[col]])
+
+    for col in categoricals.columns:
+        if col in df.drop('CHURN', axis=1).columns:
+            df[col] = encoder.fit_transform(df[col])
+
+    sel_cols = ['REGULARITY', 'DATA_VOLUME', 'REVENUE', 'ORANGE', 'ON_NET', 'MONTANT', 'FREQUENCE']
+    X = df[sel_cols]
+    y = df['CHURN']
+
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.20, random_state=75, stratify=y)
+    mdl = RandomForestClassifier(n_estimators=100, random_state=42)
+    mdl.fit(X_train, y_train)
+    pickle.dump(mdl, open(model_path, 'wb'))
+    return mdl
 
 
+@st.cache_data
+def get_scaled_ranges():
+    data = load_data()
+    df = data.copy()
+
+    def remove_outliers(df):
+        for col in df.columns:
+            if df[col].dtype != 'O':
+                Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                df = df[(df[col] >= Q1 - 1.5 * IQR) & (df[col] <= Q3 + 1.5 * IQR)]
+        return df
+
+    df = remove_outliers(df)
+    sel = df[['REGULARITY', 'DATA_VOLUME', 'REVENUE', 'ORANGE', 'ON_NET', 'MONTANT', 'FREQUENCE']]
+    scaler = StandardScaler()
+    scaled = pd.DataFrame(scaler.fit_transform(sel), columns=sel.columns)
+    return sel, scaled, scaler
+
+
+data  = load_data()
+model = load_model()
+raw_df, scaled_df, fit_scaler = get_scaled_ranges()
+
+sel_cols = ['REGULARITY', 'DATA_VOLUME', 'REVENUE', 'ORANGE', 'ON_NET', 'MONTANT', 'FREQUENCE']
+
+
+# ── Feature metadata ───────────────────────────────────────────────────────────
+FEATURES = [
+    {
+        "key": "REGULARITY",
+        "label": "Regularity",
+        "icon": "📅",
+        "desc": "How consistently the customer uses Expresso services over a period. High regularity means frequent, habitual usage — a strong retention signal.",
+    },
+    {
+        "key": "DATA_VOLUME",
+        "label": "Data Volume",
+        "icon": "📶",
+        "desc": "Total mobile data consumed by the customer (in MB or GB). Higher consumption typically indicates a more engaged user.",
+    },
+    {
+        "key": "REVENUE",
+        "label": "Revenue",
+        "icon": "💰",
+        "desc": "Total revenue generated from the customer (calls, data, etc.). Customers with low revenue are often higher churn risks.",
+    },
+    {
+        "key": "ORANGE",
+        "label": "Orange Calls",
+        "icon": "🟠",
+        "desc": "Number of calls made to the Orange network (a competing telecom). High inter-network calls can indicate divided loyalty.",
+    },
+    {
+        "key": "ON_NET",
+        "label": "On-Net Calls",
+        "icon": "📞",
+        "desc": "Number of calls made within the Expresso network. Higher on-net activity suggests stronger in-network engagement.",
+    },
+    {
+        "key": "MONTANT",
+        "label": "Top-Up Amount (Montant)",
+        "icon": "💳",
+        "desc": "Total recharge/top-up amount. Customers who top up frequently and in larger amounts are generally less likely to churn.",
+    },
+    {
+        "key": "FREQUENCE",
+        "label": "Recharge Frequency",
+        "icon": "🔄",
+        "desc": "Number of times the customer recharged their account. A high recharge frequency is a positive engagement indicator.",
+    },
+]
+
+
+# ── Header ─────────────────────────────────────────────────────────────────────
+st.markdown('<p class="hero-title">📡 Expresso Churn Predictor</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Customer Churn Prediction for Expresso Telecom &nbsp;|&nbsp; Built by Datapsalm</p>', unsafe_allow_html=True)
+st.markdown('<br>', unsafe_allow_html=True)
+
+tab_home, tab_predict, tab_data = st.tabs(["🏠 Overview", "🔮 Predict Churn", "📊 Dataset Explorer"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — OVERVIEW
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_home:
+    col_img, col_desc = st.columns([1, 1.6], gap="large")
+
+    with col_img:
+        st.image('bg.jpeg', use_column_width=True)
+
+    with col_desc:
+        st.markdown('<p class="section-header">About This App</p>', unsafe_allow_html=True)
+        st.markdown("""
+**Expresso** is a major telecommunications provider in Africa under the Sudatel Group, connecting
+millions of users across multiple nations with mobile and internet services.
+
+This app uses a **Random Forest Classifier** trained on over 2.5 million Expresso customer records
+to predict the likelihood of churn — whether a customer is about to leave the network.
+
+Telecoms that can anticipate churn can act early with targeted retention campaigns, better offers,
+and proactive customer support before customers walk away.
+        """)
+
+        st.markdown('<br>', unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        churn_rate = data['CHURN'].mean() * 100 if 'CHURN' in data.columns else 0
+        with c1:
+            st.markdown(f'<div class="stat-card"><div class="value">{len(data):,}</div><div class="label">Customer Records</div></div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown(f'<div class="stat-card"><div class="value">{churn_rate:.1f}%</div><div class="label">Churn Rate</div></div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown('<div class="stat-card"><div class="value">7</div><div class="label">Model Features</div></div>', unsafe_allow_html=True)
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown('<p class="section-header">Feature Guide</p>', unsafe_allow_html=True)
+    st.markdown("The model uses seven behavioral signals to assess churn risk. Understanding each helps you enter accurate values.")
+    st.markdown('<br>', unsafe_allow_html=True)
+
+    left, right = st.columns(2, gap="medium")
+    for i, feat in enumerate(FEATURES):
+        col = left if i % 2 == 0 else right
+        with col:
+            st.markdown(f"""
+            <div class="feature-card">
+              <h4>{feat['icon']} {feat['label']}</h4>
+              <p>{feat['desc']}</p>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown('<p class="section-header">How the Model Works</p>', unsafe_allow_html=True)
+    cols = st.columns(4, gap="medium")
+    for col, (step, label) in zip(cols, [
+        ("1️⃣", "Outliers are removed using the IQR method to clean the data"),
+        ("2️⃣", "Numeric features are scaled; categorical features are label-encoded"),
+        ("3️⃣", "100 decision trees are trained on 80% of the data"),
+        ("4️⃣", "Your inputs are scaled and voted on by all trees — majority wins"),
+    ]):
+        with col:
+            st.info(f"**{step}** {label}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — PREDICT
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_predict:
+    st.markdown('<p class="section-header">Customer Profile</p>', unsafe_allow_html=True)
+    st.markdown("Enter the customer's usage data below and press **Predict** to assess churn risk.")
+    st.markdown('<br>', unsafe_allow_html=True)
+
+    input_type = st.radio("Input style", ["Sliders", "Number Inputs"], horizontal=True, label_visibility="collapsed")
+    st.markdown('<br>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2, gap="large")
+
+    def make_input(label, key, col, help_text=""):
+        mn, mx = float(raw_df[key].min()), float(raw_df[key].max())
+        default = float(raw_df[key].median())
+        if input_type == "Sliders":
+            return col.slider(label, mn, mx, default, help=help_text)
+        return col.number_input(label, mn, mx, default, help=help_text)
+
+    with col1:
+        regularity  = make_input("📅 Regularity",              "REGULARITY",  col1, "How consistently the customer uses Expresso")
+        data_volume = make_input("📶 Data Volume",             "DATA_VOLUME", col1, "Total data consumed")
+        revenue     = make_input("💰 Revenue",                 "REVENUE",     col1, "Total revenue generated from the customer")
+        orange      = make_input("🟠 Orange Calls",            "ORANGE",      col1, "Calls made to the Orange network")
+
+    with col2:
+        on_net      = make_input("📞 On-Net Calls",            "ON_NET",      col2, "Calls made within the Expresso network")
+        montant     = make_input("💳 Top-Up Amount (Montant)", "MONTANT",     col2, "Total recharge amount")
+        frequence   = make_input("🔄 Recharge Frequency",     "FREQUENCE",   col2, "Number of times the customer recharged")
+
+    st.markdown('<br>', unsafe_allow_html=True)
+
+    raw_input = pd.DataFrame([{
+        'REGULARITY': regularity, 'DATA_VOLUME': data_volume,
+        'REVENUE': revenue, 'ORANGE': orange,
+        'ON_NET': on_net, 'MONTANT': montant, 'FREQUENCE': frequence,
+    }])
+
+    scaled_input = pd.DataFrame(
+        fit_scaler.transform(raw_input),
+        columns=raw_input.columns
+    )
+
+    with st.expander("Review raw input values"):
+        st.dataframe(raw_input, use_container_width=True)
+
+    if st.button("🔮 Predict Churn Risk", type="primary", use_container_width=True):
+        pred = model.predict(scaled_input)[0]
+        prob = model.predict_proba(scaled_input)[0]
+        churn_prob = prob[1] * 100
+
+        if pred == 1:
+            st.markdown(f"""
+            <div class="result-churn">
+              <div class="result-label">Prediction Result</div>
+              <div class="result-verdict">⚠️ Likely to Churn</div>
+              <div class="result-label" style="margin-top:10px">Churn probability: {churn_prob:.1f}%</div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="result-safe">
+              <div class="result-label">Prediction Result</div>
+              <div class="result-verdict">✅ Not Likely to Churn</div>
+              <div class="result-label" style="margin-top:10px">Retention probability: {100 - churn_prob:.1f}%</div>
+            </div>""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — DATASET EXPLORER
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_data:
+    st.markdown('<p class="section-header">Dataset Overview</p>', unsafe_allow_html=True)
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Records", f"{len(data):,}")
+    if 'CHURN' in data.columns:
+        m2.metric("Churned",    f"{data['CHURN'].sum():,}")
+        m3.metric("Retained",   f"{(data['CHURN'] == 0).sum():,}")
+        m4.metric("Churn Rate", f"{data['CHURN'].mean()*100:.1f}%")
+
+    st.markdown('<br>', unsafe_allow_html=True)
+    preview_cols = sel_cols + (['CHURN'] if 'CHURN' in data.columns else [])
+    st.markdown("**Sample rows (selected features)**")
+    st.dataframe(data[preview_cols].head(20), use_container_width=True)
+
+    st.markdown('<br>', unsafe_allow_html=True)
+    st.markdown("**Descriptive statistics**")
+    st.dataframe(data[preview_cols].describe().round(2), use_container_width=True)
+
+    if 'CHURN' in data.columns:
+        st.markdown('<br>', unsafe_allow_html=True)
+        st.markdown("**Churn Distribution**")
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        churn_counts = data['CHURN'].value_counts()
+        axes[0].pie(churn_counts, labels=['Retained', 'Churned'], autopct='%1.1f%%',
+                    colors=['#2e7d32', '#860A35'], startangle=90)
+        axes[0].set_title('Churn Distribution')
+
+        sns.histplot(data=data, x='REVENUE', hue='CHURN', bins=30,
+                     palette={0: '#2e7d32', 1: '#860A35'}, ax=axes[1])
+        axes[1].set_title('Revenue by Churn Status')
+        axes[1].set_xlabel('Revenue')
+        fig.tight_layout()
+        st.pyplot(fig)
+
+
+# ── Sidebar ────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.image('pngwing.com (8).png')
+    st.markdown("### Expresso Churn Predictor")
+    st.markdown("Use the tabs to explore the data or make a churn prediction.")
+    st.markdown("---")
+    st.markdown("**Model:** Random Forest Classifier")
+    st.markdown("**Dataset:** Expresso Telecom (Africa)")
+    st.markdown("**Features:** 7 behavioral signals")
+    st.markdown(f"**Records:** {len(data):,}")
+    st.markdown("---")
+    st.caption("Built by Datapsalm")
